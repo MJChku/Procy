@@ -179,18 +179,63 @@ class Procy:
 
     def _on_input(self, data: bytes) -> bytes | None:
         self._input_buffer += data
+
+        # Check for Enter key
         if b"\r" in data or b"\n" in data:
             line = self._input_buffer.decode("utf-8", errors="replace").strip()
             self._input_buffer = b""
+
             if line.startswith("!"):
+                # Procy command — already swallowed keystrokes, now handle
+                # Print newline to move past the echoed "!command" text
+                sys.stderr.write("\r\n")
+                sys.stderr.flush()
                 self._handle_command(line)
-                return b""
+                return b""  # swallow the Enter too
+
             if line:
                 self.turn_num += 1
                 self.last_human_prompt = line
                 self.store.log_turn(self.session_id, self.turn_num, "human", line)
-            return None
-        return None
+            return None  # pass through unchanged
+
+        # While typing: if buffer starts with '!', swallow the keystroke
+        # and echo it locally so the agent never sees it
+        buf_str = self._input_buffer.decode("utf-8", errors="replace")
+        if buf_str.startswith("!"):
+            # Handle backspace (0x7f) while in ! mode
+            if data == b"\x7f":
+                if len(self._input_buffer) > 1:
+                    # Remove the backspace byte AND the char before it
+                    text = self._input_buffer.decode("utf-8", errors="replace")
+                    text = text[:-1]  # remove the \x7f
+                    if text:
+                        text = text[:-1]  # remove char before it
+                    self._input_buffer = text.encode("utf-8")
+                    # Erase character on screen: backspace + space + backspace
+                    sys.stderr.write("\b \b")
+                    sys.stderr.flush()
+                else:
+                    # Backspaced past '!' — clear buffer, nothing to send
+                    self._input_buffer = b""
+                    sys.stderr.write("\b \b")
+                    sys.stderr.flush()
+                return b""  # swallow
+
+            # Handle Ctrl-C: cancel the ! command
+            if data == b"\x03":
+                self._input_buffer = b""
+                sys.stderr.write("^C\r\n")
+                sys.stderr.flush()
+                return b""  # swallow
+
+            # Echo the character locally (agent doesn't see it)
+            ch = data.decode("utf-8", errors="replace")
+            sys.stderr.write(ch)
+            sys.stderr.flush()
+            return b""  # swallow — don't send to agent
+
+        return None  # not a ! command, pass through normally
 
     def _on_output(self, data: bytes):
         if self._capture_output:

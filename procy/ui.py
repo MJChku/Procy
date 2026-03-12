@@ -112,571 +112,386 @@ def index():
     return INDEX_HTML
 
 
-INDEX_HTML = r"""<!DOCTYPE html>
+INDEX_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ProCy Monitor</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: #0d1117; color: #c9d1d9;
-    display: flex; height: 100vh; overflow: hidden;
-}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProCy Monitor</title>
+  <style>
+    :root {
+      --bg: #f5f7f2; --fg: #1f2a1f; --accent: #2f6f4f; --muted: #5f6f61;
+      --card: #ffffff; --bad: #b72136; --ok: #236c42; --border: #d9ded7;
+      --proxy: #f4fbf6; --llm: #f8f4ee;
+      --edge-proxy: #2f6f4f; --edge-llm: #7e5f2a; --edge-bg: #f6f8f6;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background: linear-gradient(130deg,#f7f8f3 0%,#eef4ed 100%); color: var(--fg); }
+    header { padding:14px 20px; border-bottom:1px solid var(--border); background:rgba(255,255,255,.72); backdrop-filter:blur(6px); position:sticky; top:0; z-index:5; }
+    .title { font-size:18px; font-weight:700; }
+    .subtitle { font-size:12px; color:var(--muted); margin-top:4px; }
+    .layout { display:grid; grid-template-columns:300px 1fr; gap:12px; padding:12px; min-height:calc(100vh - 66px); }
+    .panel { background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .panel h2 { margin:0; font-size:13px; padding:10px 12px; border-bottom:1px solid var(--border); color:var(--accent); text-transform:uppercase; letter-spacing:.03em; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; }
+    .pill { border-radius:999px; border:1px solid var(--border); padding:2px 8px; font-size:11px; line-height:1.5; white-space:nowrap; }
+    .ok { color:var(--ok); border-color:#afceb8; background:#edf8f1; }
+    .bad { color:var(--bad); border-color:#e2b0b8; background:#fdf0f2; }
+    .content { padding:12px; }
+    .muted { color:var(--muted); }
+    .small { font-size:11px; }
 
-/* Sidebar */
-#sidebar {
-    width: 280px; min-width: 280px;
-    background: #161b22; border-right: 1px solid #30363d;
-    display: flex; flex-direction: column; overflow: hidden;
-}
-#sidebar-header {
-    padding: 16px; border-bottom: 1px solid #30363d;
-    font-size: 18px; font-weight: 600; color: #c084fc;
-}
-#sidebar-header span { font-size: 12px; color: #8b949e; display: block; margin-top: 4px; }
-#session-list {
-    flex: 1; overflow-y: auto; padding: 8px;
-}
-.session-item {
-    padding: 10px 12px; margin: 4px 0; border-radius: 8px;
-    cursor: pointer; border: 1px solid transparent;
-    transition: all 0.15s;
-}
-.session-item:hover { background: #1c2333; border-color: #30363d; }
-.session-item.active { background: #1c2333; border-color: #c084fc; }
-.session-item .sid { font-size: 13px; font-weight: 500; color: #e6edf3; }
-.session-item .meta { font-size: 11px; color: #8b949e; margin-top: 4px; }
-.session-item .badges { margin-top: 4px; display: flex; gap: 6px; }
-.badge {
-    font-size: 10px; padding: 2px 6px; border-radius: 4px;
-    font-weight: 500;
-}
-.badge-turns { background: #1f3a2e; color: #3fb950; }
-.badge-corrections { background: #3d2a1a; color: #f0883e; }
-.badge-evolve { background: #2d1f4e; color: #c084fc; }
+    .session-item { border-bottom:1px solid #edf1eb; padding:10px 12px; cursor:pointer; }
+    .session-item:hover { background:#f6faf6; }
+    .session-item.active { background:#e8f3ea; }
 
-/* Main content */
-#main {
-    flex: 1; display: flex; flex-direction: column; overflow: hidden;
-}
+    .tabbar { display:flex; gap:6px; padding:8px 10px; border-bottom:1px solid var(--border); background:#f8fbf8; }
+    .tab-btn { border:1px solid var(--border); background:#fff; color:var(--muted); border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+    .tab-btn.active { background:#2f6f4f; border-color:#2f6f4f; color:#fff; }
 
-/* Tabs */
-#tabs {
-    display: flex; border-bottom: 1px solid #30363d; background: #161b22;
-    padding: 0 16px;
-}
-.tab {
-    padding: 10px 20px; cursor: pointer; font-size: 13px; font-weight: 500;
-    color: #8b949e; border-bottom: 2px solid transparent;
-    transition: all 0.15s;
-}
-.tab:hover { color: #e6edf3; }
-.tab.active { color: #c084fc; border-bottom-color: #c084fc; }
+    .turn { border:1px solid var(--border); border-radius:10px; margin-bottom:10px; background:#fcfdfc; padding:8px; }
+    .turn-meta { font-size:11px; color:var(--muted); margin-bottom:8px; }
+    .edge { border:1px solid #e2e8df; border-radius:8px; background:var(--edge-bg); padding:8px; margin-top:8px; cursor:pointer; width:100%; text-align:left; font:inherit; color:inherit; transition:background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+    .edge:hover { border-color:#bfd1c4; transform:translateY(-1px); }
+    .edge.human-prompt { border-left:4px solid var(--edge-proxy); background:#eaf7ef; width:calc(100% - 72px); margin-right:72px; }
+    .edge.human-prompt:hover { background:#e1f3e9; }
+    .edge.agent-response { border-left:4px solid var(--edge-llm); background:#fff4e2; width:calc(100% - 72px); margin-left:72px; cursor:pointer; }
+    .edge.agent-response:hover { background:#ffeed5; }
+    .edge.procy-prompt { border-left:4px solid #7c3aed; background:#f6edff; width:calc(100% - 72px); margin-right:72px; }
+    .edge.procy-prompt:hover { background:#efdeff; }
+    .edge-head { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:11px; color:var(--muted); margin-bottom:6px; }
+    .edge-text { font-size:12px; white-space:pre-wrap; word-break:break-word; margin:0; max-height:120px; overflow:auto; }
+    .edit-tag { font-size:10px; padding:2px 6px; border-radius:999px; background:#e8f0ff; border:1px solid #b8cbf0; color:#2b5fb5; }
 
-/* Tab content */
-.tab-content { display: none; flex: 1; overflow-y: auto; padding: 20px; }
-.tab-content.active { display: block; }
+    pre { margin:0; font-size:12px; background:#f4f7f3; border:1px solid #e0e8de; border-radius:8px; padding:8px; white-space:pre-wrap; word-break:break-word; max-height:240px; overflow:auto; }
+    button { border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; background:#fff; font:inherit; font-size:12px; }
+    button.primary { background:#2f6f4f; border-color:#2f6f4f; color:#fff; }
+    button.danger { background:#b72136; border-color:#b72136; color:#fff; }
+    textarea, input[type=text] { width:100%; border:1px solid var(--border); border-radius:8px; padding:8px; font:inherit; font-size:12px; background:#fdfefd; }
+    textarea { min-height:180px; }
+    label { display:block; font-size:11px; color:var(--muted); margin-bottom:4px; }
 
-/* Conversation view */
-#conversation { max-width: 900px; margin: 0 auto; width: 100%; }
-.turn-card {
-    margin: 12px 0; display: flex; flex-direction: column;
-}
-.turn-card.human { align-items: flex-start; }
-.turn-card.agent { align-items: flex-end; }
-.turn-card.procy { align-items: flex-start; }
-.turn-bubble {
-    max-width: 75%; padding: 12px 16px; border-radius: 12px;
-    font-size: 14px; line-height: 1.5; white-space: pre-wrap;
-    word-break: break-word;
-}
-.turn-card.human .turn-bubble {
-    background: #1f3a2e; border: 1px solid #238636; border-bottom-left-radius: 4px;
-}
-.turn-card.agent .turn-bubble {
-    background: #1c2333; border: 1px solid #30363d; border-bottom-right-radius: 4px;
-}
-.turn-card.procy .turn-bubble {
-    background: #2d1f4e; border: 1px solid #8957e5; border-bottom-left-radius: 4px;
-}
-.turn-label {
-    font-size: 11px; font-weight: 600; margin-bottom: 4px; text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.turn-card.human .turn-label { color: #3fb950; }
-.turn-card.agent .turn-label { color: #8b949e; }
-.turn-card.procy .turn-label { color: #c084fc; }
-.turn-time { font-size: 10px; color: #484f58; margin-top: 4px; }
-.turn-meta { font-size: 11px; color: #8b949e; margin-top: 4px; }
+    /* Slide-left edit panel */
+    .slide-left { position:fixed; top:0; left:-45vw; width:45vw; height:100vh; background:#fff; border-right:1px solid var(--border); box-shadow:4px 0 20px rgba(0,0,0,0.08); z-index:20; transition:left 200ms ease; overflow-y:auto; padding:16px; }
+    .slide-left.open { left:0; }
 
-/* Corrections tab */
-.correction-card {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 16px; margin: 12px 0;
-}
-.correction-card .label { font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
-.correction-card .original { color: #f85149; margin-bottom: 12px; }
-.correction-card .corrected { color: #3fb950; }
-.correction-card textarea {
-    width: 100%; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
-    border-radius: 6px; padding: 8px; font-family: inherit; font-size: 13px;
-    resize: vertical; min-height: 60px;
-}
-.correction-card .actions { margin-top: 8px; display: flex; gap: 8px; }
-.btn {
-    padding: 6px 14px; border-radius: 6px; border: 1px solid #30363d;
-    background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px;
-    font-weight: 500; transition: all 0.15s;
-}
-.btn:hover { background: #30363d; }
-.btn-primary { background: #238636; border-color: #238636; color: #fff; }
-.btn-primary:hover { background: #2ea043; }
-.btn-danger { background: #da3633; border-color: #da3633; color: #fff; }
-.btn-danger:hover { background: #f85149; }
-.btn-purple { background: #8957e5; border-color: #8957e5; color: #fff; }
-.btn-purple:hover { background: #a371f7; }
+    /* Slide-right detail panel */
+    .slide-panel { position:fixed; top:0; right:-45vw; width:45vw; height:100vh; background:#fff; border-left:1px solid var(--border); box-shadow:-4px 0 20px rgba(0,0,0,0.08); z-index:20; transition:right 200ms ease; overflow-y:auto; padding:16px; }
+    .slide-panel.open { right:0; }
+    .slide-panel-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
 
-/* Evolve tab */
-.evolve-card {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 16px; margin: 12px 0; border-left: 3px solid #8957e5;
-}
-.evolve-card .iter-badge {
-    display: inline-block; background: #2d1f4e; color: #c084fc;
-    padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
-}
-.evolve-card .prompt { margin-top: 8px; font-size: 14px; line-height: 1.5; }
-.evolve-card .score { margin-top: 8px; font-size: 13px; color: #8b949e; }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    .metric { border:1px solid var(--border); border-radius:8px; background:#f9fbf8; padding:8px; font-size:12px; }
 
-/* Training tab */
-#training-content { max-width: 900px; margin: 0 auto; width: 100%; }
-.training-pair {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 16px; margin: 12px 0; display: flex; gap: 16px;
-}
-.training-pair .col { flex: 1; }
-.training-pair .col-label {
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-    margin-bottom: 6px;
-}
-.training-pair .instruction { color: #f0883e; }
-.training-pair .output { color: #3fb950; }
-.training-pair pre {
-    font-size: 13px; white-space: pre-wrap; word-break: break-word;
-    line-height: 1.5;
-}
+    .train-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
+    .train-table th, .train-table td { text-align:left; vertical-align:top; border-bottom:1px solid #edf1eb; padding:8px; }
+    .train-cell { max-width:360px; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:11px; }
 
-/* Empty state */
-.empty-state {
-    text-align: center; padding: 60px 20px; color: #484f58;
-}
-.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
-.empty-state .title { font-size: 18px; color: #8b949e; margin-bottom: 8px; }
+    .status-note { font-size:12px; margin-top:8px; color:var(--muted); }
 
-/* Actions bar */
-.toolbar {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 16px; padding: 8px 0;
-}
-.toolbar .count { font-size: 13px; color: #8b949e; }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #0d1117; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
-
-/* Status indicator */
-.status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-.status-running { background: #3fb950; animation: pulse 1.5s infinite; }
-.status-done { background: #8b949e; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-/* Add correction form */
-#add-correction-form {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 16px; margin-bottom: 16px; display: none;
-}
-#add-correction-form .form-row { margin-bottom: 12px; }
-#add-correction-form label {
-    display: block; font-size: 12px; font-weight: 500; color: #8b949e;
-    margin-bottom: 4px;
-}
-#add-correction-form textarea, #add-correction-form input {
-    width: 100%; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
-    border-radius: 6px; padding: 8px; font-family: inherit; font-size: 13px;
-}
-</style>
+    @media (max-width:1000px) { .layout { grid-template-columns:1fr; } .slide-left { width:85vw; left:-85vw; } .slide-panel { width:85vw; right:-85vw; } }
+  </style>
 </head>
 <body>
+  <header>
+    <div class="title">ProCy Monitor</div>
+    <div class="subtitle">Human prompt (left, green). Agent response (right, gold). Click prompts to correct for training.</div>
+  </header>
+  <main class="layout">
+    <section class="panel">
+      <h2>Sessions</h2>
+      <div id="sessions"></div>
+    </section>
+    <section class="panel">
+      <h2>Workspace</h2>
+      <div class="tabbar">
+        <button id="tab-interactions" class="tab-btn active" onclick="selectTab('interactions')">Interactions</button>
+        <button id="tab-corrections" class="tab-btn" onclick="selectTab('corrections')">Corrections</button>
+        <button id="tab-training" class="tab-btn" onclick="selectTab('training')">Training</button>
+      </div>
+      <div id="details" class="content muted">Select a session to inspect interactions.</div>
+    </section>
+  </main>
 
-<div id="sidebar">
-    <div id="sidebar-header">
-        ProCy Monitor
-        <span>Prompt proxy traces</span>
+  <!-- Slide-left: edit/correct panel -->
+  <div id="edit-panel" class="slide-left">
+    <div class="slide-panel-header">
+      <div>
+        <div><b id="edit-title">Edit Prompt</b></div>
+        <div id="edit-meta" class="small muted"></div>
+      </div>
+      <button onclick="closeEdit()">Close</button>
     </div>
-    <div id="session-list"></div>
-</div>
-
-<div id="main">
-    <div id="tabs">
-        <div class="tab active" data-tab="conversation">Conversation</div>
-        <div class="tab" data-tab="corrections">Corrections</div>
-        <div class="tab" data-tab="evolve">Evolve Runs</div>
-        <div class="tab" data-tab="training">Training Data</div>
+    <div>
+      <label>Current Prompt (read-only)</label>
+      <pre id="edge-current" style="max-height:30vh;overflow:auto"></pre>
     </div>
-
-    <div id="tab-conversation" class="tab-content active">
-        <div id="conversation">
-            <div class="empty-state">
-                <div class="title">Select a session</div>
-                <div>Choose a session from the sidebar to view the conversation</div>
-            </div>
-        </div>
+    <div style="margin-top:8px">
+      <label>Human Correction (saved for SFT/DPO training)</label>
+      <textarea id="edge-edited" style="min-height:30vh"></textarea>
     </div>
-
-    <div id="tab-corrections" class="tab-content">
-        <div style="max-width:900px;margin:0 auto;width:100%">
-            <div class="toolbar">
-                <span class="count" id="correction-count"></span>
-                <div style="display:flex;gap:8px">
-                    <button class="btn btn-primary" onclick="toggleAddCorrection()">+ Add Correction</button>
-                    <button class="btn btn-purple" onclick="exportTraining()">Export JSONL</button>
-                </div>
-            </div>
-            <div id="add-correction-form">
-                <div class="form-row">
-                    <label>Original Prompt</label>
-                    <textarea id="new-original" rows="3" placeholder="The original prompt..."></textarea>
-                </div>
-                <div class="form-row">
-                    <label>Corrected Prompt</label>
-                    <textarea id="new-corrected" rows="3" placeholder="The improved prompt..."></textarea>
-                </div>
-                <div class="form-row">
-                    <label>Note (optional)</label>
-                    <input id="new-note" placeholder="Why this correction?" />
-                </div>
-                <div class="actions">
-                    <button class="btn btn-primary" onclick="saveNewCorrection()">Save</button>
-                    <button class="btn" onclick="toggleAddCorrection()">Cancel</button>
-                </div>
-            </div>
-            <div id="corrections-list"></div>
-        </div>
+    <div style="margin-top:8px">
+      <label>Note (optional)</label>
+      <input type="text" id="edge-note" placeholder="why this correction is better" />
     </div>
-
-    <div id="tab-evolve" class="tab-content">
-        <div style="max-width:900px;margin:0 auto;width:100%">
-            <div id="evolve-list">
-                <div class="empty-state">
-                    <div class="title">No evolve runs yet</div>
-                    <div>Use <code>!evolve N</code> in procy to auto-generate prompts</div>
-                </div>
-            </div>
-        </div>
+    <div style="margin-top:12px" class="row">
+      <div id="edit-status" class="status-note"></div>
+      <button class="primary" id="btn-save-edit" onclick="saveEdit()">Save Correction</button>
     </div>
+  </div>
 
-    <div id="tab-training" class="tab-content">
-        <div id="training-content">
-            <div class="toolbar">
-                <span class="count" id="training-count"></span>
-                <button class="btn btn-purple" onclick="exportTraining()">Export JSONL</button>
-            </div>
-            <div id="training-list"></div>
-        </div>
+  <!-- Slide-right: response detail panel -->
+  <div id="slide-panel" class="slide-panel">
+    <div class="slide-panel-header">
+      <div>
+        <div><b id="slide-title">Response Detail</b></div>
+        <div id="slide-meta" class="small muted"></div>
+      </div>
+      <button onclick="closeSlidePanel()">Close</button>
     </div>
-</div>
+    <div id="slide-content"></div>
+  </div>
 
-<script>
-// ── State ──
-let currentSession = null;
-let sessionData = null;
-let allSessions = [];
+  <script>
+    const state = { sessions:[], selectedId:null, sessionData:null, activeTab:'interactions', editTarget:null };
 
-// ── Init ──
-document.addEventListener('DOMContentLoaded', () => {
-    loadSessions();
-    setupTabs();
-    // Auto-refresh every 5s
-    setInterval(refreshCurrent, 5000);
-});
+    function esc(s) { if(s===null||s===undefined) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
+    function excerpt(s, n=260) { if(!s) return ''; const r=String(s).trim(); return r.length<=n?r:r.slice(0,n)+'...'; }
+    function fmtTs(ts) { if(!ts) return '-'; const d=new Date(ts*1000); return d.toLocaleString(); }
 
-function setupTabs() {
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    // ── Init ──
+    document.addEventListener('DOMContentLoaded', () => { fetchSessions(); setInterval(refresh, 5000); });
+    document.addEventListener('keydown', e => { if(e.key==='Escape'){closeEdit();closeSlidePanel();} });
+
+    function selectTab(tab) {
+      state.activeTab = tab;
+      ['interactions','corrections','training'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t===tab));
+      if(state.selectedId) renderWorkspace();
+    }
+
+    // ── Sessions ──
+    async function fetchSessions() {
+      try { const r=await fetch('/api/sessions'); state.sessions=await r.json(); } catch(e) {}
+      renderSessions();
+      if(!state.selectedId && state.sessions.length>0) selectSession(state.sessions[0].id);
+    }
+
+    function renderSessions() {
+      const el=document.getElementById('sessions');
+      if(!state.sessions.length) { el.innerHTML='<div class="content small muted">No sessions yet.</div>'; return; }
+      el.innerHTML=state.sessions.map(s => {
+        const active=s.id===state.selectedId?'active':'';
+        const statusCls=s.status==='running'?'ok':'muted';
+        return `<div class="session-item ${active}" onclick="selectSession('${s.id}')">
+          <div class="row"><span class="mono">${esc(s.id.slice(0,8))}</span><span class="pill ${statusCls}">${esc(s.status)}</span></div>
+          <div class="small">${esc(s.goal||'')}</div>
+          <div class="small muted">${fmtTs(s.started_at)} | ${s.turn_count||0} turns | ${s.correction_count||0} corrections</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function selectSession(id) {
+      state.selectedId=id; renderSessions();
+      try { const r=await fetch('/api/sessions/'+id); state.sessionData=await r.json(); } catch(e) {}
+      renderWorkspace();
+    }
+
+    async function refresh() { await fetchSessions(); if(state.selectedId) { try { const r=await fetch('/api/sessions/'+state.selectedId); state.sessionData=await r.json(); renderWorkspace(); } catch(e){} } }
+
+    // ── Workspace ──
+    function renderWorkspace() {
+      if(state.activeTab==='interactions') renderInteractions();
+      else if(state.activeTab==='corrections') renderCorrections();
+      else if(state.activeTab==='training') renderTraining();
+    }
+
+    function renderInteractions() {
+      const el=document.getElementById('details');
+      const data=state.sessionData;
+      if(!data) { el.innerHTML='<div class="content muted">Select a session.</div>'; return; }
+      const session=data.session||{};
+      const turns=data.turns||[];
+      const corrections=data.corrections||[];
+
+      // Consolidate agent_chunk turns
+      const consolidated=[];
+      let chunk=null;
+      for(const t of turns) {
+        if(t.role==='agent_chunk') {
+          if(chunk && chunk.turn_num===t.turn_num) { chunk.content+=t.content; chunk.timestamp=t.timestamp; if(t.metadata) chunk.metadata=t.metadata; }
+          else { if(chunk) consolidated.push(chunk); chunk={...t, role:'agent'}; }
+        } else { if(chunk){consolidated.push(chunk);chunk=null;} consolidated.push(t); }
+      }
+      if(chunk) consolidated.push(chunk);
+
+      // Group by turn_num: pair human/procy prompt with agent response
+      const turnGroups={};
+      consolidated.forEach(t => {
+        if(!turnGroups[t.turn_num]) turnGroups[t.turn_num]={prompts:[],responses:[]};
+        if(t.role==='human'||t.role==='procy') turnGroups[t.turn_num].prompts.push(t);
+        else turnGroups[t.turn_num].responses.push(t);
+      });
+
+      const turnNums=Object.keys(turnGroups).map(Number).sort((a,b)=>a-b);
+      const turnsHtml=turnNums.map(num => {
+        const g=turnGroups[num];
+        let html='';
+        // Check if this turn has a correction
+        const corr=corrections.find(c=>c.turn_num===num);
+        const corrTag=corr?'<span class="edit-tag">human corrected</span>':'';
+
+        g.prompts.forEach(p => {
+          const isProcy=p.role==='procy';
+          const cls=isProcy?'procy-prompt':'human-prompt';
+          const label=isProcy?'ProCy (evolve) prompt':'Human prompt';
+          html+=`<button class="edge ${cls}" onclick="openEdit(${num}, ${JSON.stringify(esc(p.content)).replace(/"/g,'&quot;')})">
+            <div class="edge-head"><span>${label} (t${num})</span>${corrTag}</div>
+            <pre class="edge-text">${esc(excerpt(p.content,400))}</pre>
+          </button>`;
         });
-    });
-}
+        g.responses.forEach(r => {
+          let meta='';
+          if(r.metadata) { try { const m=typeof r.metadata==='string'?JSON.parse(r.metadata):r.metadata; if(m.cost_usd) meta+='$'+m.cost_usd.toFixed(4)+' '; } catch(e){} }
+          html+=`<div class="edge agent-response" onclick="openSlide(${num}, this)">
+            <div class="edge-head"><span>Agent response</span><span>${meta}</span></div>
+            <pre class="edge-text">${esc(excerpt(r.content,400))}</pre>
+          </div>`;
+          // Store full content on element for slide panel
+          if(!window._responseCache) window._responseCache={};
+          window._responseCache[num]=r.content||'';
+        });
+        return `<div class="turn"><div class="turn-meta"><div class="row"><span><b>Turn ${num}</b></span><span class="small muted">${g.prompts[0]?fmtTs(g.prompts[0].timestamp):''}</span></div></div>${html}</div>`;
+      }).join('');
 
-// ── Sessions ──
-async function loadSessions() {
-    const resp = await fetch('/api/sessions');
-    allSessions = await resp.json();
-    renderSessions();
-    // Auto-select first if none selected
-    if (!currentSession && allSessions.length > 0) {
-        selectSession(allSessions[0].id);
-    }
-}
-
-function renderSessions() {
-    const el = document.getElementById('session-list');
-    if (allSessions.length === 0) {
-        el.innerHTML = '<div class="empty-state"><div class="title">No sessions</div></div>';
-        return;
-    }
-    el.innerHTML = allSessions.map(s => {
-        const isActive = s.id === currentSession;
-        const started = new Date(s.started_at * 1000);
-        const timeStr = started.toLocaleDateString() + ' ' + started.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-        const statusCls = s.status === 'running' ? 'status-running' : 'status-done';
-        return `
-            <div class="session-item ${isActive ? 'active' : ''}" onclick="selectSession('${s.id}')">
-                <div class="sid">
-                    <span class="status ${statusCls}"></span>
-                    ${s.id.slice(0, 8)}
-                </div>
-                <div class="meta">${timeStr}${s.goal ? ' — ' + escHtml(s.goal) : ''}</div>
-                <div class="badges">
-                    ${s.turn_count ? `<span class="badge badge-turns">${s.turn_count} turns</span>` : ''}
-                    ${s.correction_count ? `<span class="badge badge-corrections">${s.correction_count} corrections</span>` : ''}
-                    ${s.evolve_count ? `<span class="badge badge-evolve">${s.evolve_count} evolves</span>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-async function selectSession(id) {
-    currentSession = id;
-    renderSessions();
-    await loadSession(id);
-}
-
-async function loadSession(id) {
-    const resp = await fetch(`/api/sessions/${id}`);
-    sessionData = await resp.json();
-    renderConversation();
-    renderCorrections();
-    renderEvolves();
-    renderTraining();
-}
-
-async function refreshCurrent() {
-    if (currentSession) {
-        await loadSession(currentSession);
-    }
-    await loadSessions();
-}
-
-// ── Conversation ──
-function renderConversation() {
-    const el = document.getElementById('conversation');
-    if (!sessionData || !sessionData.turns || sessionData.turns.length === 0) {
-        el.innerHTML = '<div class="empty-state"><div class="title">No turns yet</div></div>';
-        return;
+      const corrCount=corrections.length;
+      el.innerHTML=`<div class="content">
+        <div class="row"><div><b>${esc(session.goal||'procy session')}</b><div class="small muted mono">${esc(session.id||'')}</div><div class="small muted">${fmtTs(session.started_at)}</div></div><span class="pill ${session.status==='running'?'ok':'muted'}">${esc(session.status||'')}</span></div>
+        <div class="summary-grid">
+          <div class="metric"><b>Turns</b><br/>${turnNums.length}</div>
+          <div class="metric"><b>Corrections</b><br/>${corrCount}</div>
+          <div class="metric"><b>Evolve runs</b><br/>${(data.evolves||[]).length}</div>
+          <div class="metric"><b>Status</b><br/>${esc(session.status||'-')}</div>
+        </div>
+        <div style="margin-top:12px;max-height:calc(100vh - 280px);overflow-y:auto;padding-right:4px">${turnsHtml||'<div class="muted">No interactions yet.</div>'}</div>
+      </div>`;
     }
 
-    // Group agent_chunk turns into consolidated agent messages per turn_num
-    const consolidated = [];
-    let currentChunk = null;
-
-    for (const turn of sessionData.turns) {
-        if (turn.role === 'agent_chunk') {
-            if (currentChunk && currentChunk.turn_num === turn.turn_num) {
-                currentChunk.content += turn.content;
-            } else {
-                if (currentChunk) consolidated.push(currentChunk);
-                currentChunk = { ...turn, role: 'agent' };
-            }
-        } else {
-            if (currentChunk) {
-                consolidated.push(currentChunk);
-                currentChunk = null;
-            }
-            consolidated.push(turn);
+    // ── Corrections tab ──
+    function renderCorrections() {
+      const el=document.getElementById('details');
+      fetch('/api/corrections').then(r=>r.json()).then(all => {
+        let html=`<div class="content"><div class="row"><b>Corrections (${all.length})</b><div style="display:flex;gap:8px"><button class="primary" onclick="toggleAddForm()">+ Add</button><button onclick="exportTraining()">Export JSONL</button></div></div>`;
+        html+=`<div id="add-form" style="display:none;margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;background:#f9fbf8">
+          <div style="margin-bottom:6px"><label>Original Prompt</label><textarea id="new-original" rows="2" style="min-height:60px"></textarea></div>
+          <div style="margin-bottom:6px"><label>Corrected Prompt</label><textarea id="new-corrected" rows="2" style="min-height:60px"></textarea></div>
+          <div style="margin-bottom:6px"><label>Note</label><input type="text" id="new-note" placeholder="why?" /></div>
+          <div class="row"><span></span><div style="display:flex;gap:6px"><button class="primary" onclick="saveNewCorrection()">Save</button><button onclick="toggleAddForm()">Cancel</button></div></div>
+        </div>`;
+        if(all.length===0) { html+='<div class="muted" style="margin-top:12px">No corrections yet. Use <code>!correct</code> in procy or click a prompt above.</div>'; }
+        else {
+          html+='<table class="train-table" style="margin-top:10px"><thead><tr><th>Turn</th><th>Original</th><th>Corrected</th><th>Note</th><th></th></tr></thead><tbody>';
+          all.forEach(c => {
+            html+=`<tr><td>t${c.turn_num}</td><td><div class="train-cell">${esc(excerpt(c.original_prompt,200))}</div></td><td><div class="train-cell">${esc(excerpt(c.corrected_prompt,200))}</div></td><td class="small">${esc(c.note||'')}</td><td><button class="danger" onclick="deleteCorrection(${c.id})" style="font-size:11px;padding:4px 8px">Del</button></td></tr>`;
+          });
+          html+='</tbody></table>';
         }
+        html+='</div>';
+        el.innerHTML=html;
+      });
     }
-    if (currentChunk) consolidated.push(currentChunk);
 
-    el.innerHTML = consolidated.map(turn => {
-        const roleCls = turn.role === 'human' ? 'human' : turn.role === 'procy' ? 'procy' : 'agent';
-        const label = turn.role === 'human' ? 'Human' : turn.role === 'procy' ? 'ProCy' : 'Agent';
-        const ts = new Date(turn.timestamp * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-        let metaHtml = '';
-        if (turn.metadata) {
-            try {
-                const meta = typeof turn.metadata === 'string' ? JSON.parse(turn.metadata) : turn.metadata;
-                if (meta.cost_usd) metaHtml += `<span>$${meta.cost_usd.toFixed(4)}</span>`;
-                if (meta.num_turns) metaHtml += `<span>${meta.num_turns} turns</span>`;
-            } catch(e) {}
-        }
-        // Truncate very long agent output for display
-        let content = turn.content || '';
-        if (content.length > 3000) {
-            content = content.slice(0, 3000) + '\n\n... [truncated]';
-        }
-        return `
-            <div class="turn-card ${roleCls}">
-                <div class="turn-label">${label} (t${turn.turn_num})</div>
-                <div class="turn-bubble">${escHtml(content)}</div>
-                <div class="turn-time">${ts} ${metaHtml ? '<span class="turn-meta">' + metaHtml + '</span>' : ''}</div>
-            </div>
-        `;
-    }).join('');
-}
+    function toggleAddForm() { const f=document.getElementById('add-form'); if(f) f.style.display=f.style.display==='none'?'block':'none'; }
 
-// ── Corrections ──
-function renderCorrections() {
-    const list = document.getElementById('corrections-list');
-    const count = document.getElementById('correction-count');
-    const corrections = sessionData ? sessionData.corrections : [];
-
-    // Also load all corrections across sessions
-    fetch('/api/corrections').then(r => r.json()).then(all => {
-        count.textContent = `${all.length} correction${all.length !== 1 ? 's' : ''} total`;
-        if (all.length === 0) {
-            list.innerHTML = '<div class="empty-state"><div class="title">No corrections yet</div><div>Use <code>!correct</code> in procy to correct prompts for training</div></div>';
-            return;
-        }
-        list.innerHTML = all.map(c => `
-            <div class="correction-card" data-id="${c.id}">
-                <div class="label original" style="color:#f85149">Original (t${c.turn_num})</div>
-                <div style="margin-bottom:12px;font-size:14px;color:#f0883e">${escHtml(c.original_prompt)}</div>
-                <div class="label" style="color:#3fb950">Corrected</div>
-                <textarea class="corrected-input" rows="3">${escHtml(c.corrected_prompt)}</textarea>
-                <div style="margin-top:6px">
-                    <div class="label" style="color:#8b949e">Note</div>
-                    <input class="note-input" value="${escHtml(c.note || '')}" placeholder="Why?" style="width:100%;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:6px;font-size:13px" />
-                </div>
-                <div class="actions">
-                    <button class="btn btn-primary" onclick="updateCorrection(${c.id}, this)">Save</button>
-                    <button class="btn btn-danger" onclick="deleteCorrection(${c.id})">Delete</button>
-                </div>
-            </div>
-        `).join('');
-    });
-}
-
-function toggleAddCorrection() {
-    const form = document.getElementById('add-correction-form');
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-
-async function saveNewCorrection() {
-    const original = document.getElementById('new-original').value.trim();
-    const corrected = document.getElementById('new-corrected').value.trim();
-    const note = document.getElementById('new-note').value.trim();
-    if (!original || !corrected) return alert('Both fields required');
-    await fetch('/api/corrections', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            session_id: currentSession || 'manual',
-            turn_num: 0,
-            original_prompt: original,
-            corrected_prompt: corrected,
-            note: note || null,
-        }),
-    });
-    document.getElementById('new-original').value = '';
-    document.getElementById('new-corrected').value = '';
-    document.getElementById('new-note').value = '';
-    toggleAddCorrection();
-    renderCorrections();
-}
-
-async function updateCorrection(id, btn) {
-    const card = btn.closest('.correction-card');
-    const corrected = card.querySelector('.corrected-input').value;
-    const note = card.querySelector('.note-input').value;
-    await fetch(`/api/corrections/${id}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ corrected_prompt: corrected, note: note || null }),
-    });
-    btn.textContent = 'Saved!';
-    setTimeout(() => btn.textContent = 'Save', 1500);
-}
-
-async function deleteCorrection(id) {
-    if (!confirm('Delete this correction?')) return;
-    await fetch(`/api/corrections/${id}`, { method: 'DELETE' });
-    renderCorrections();
-}
-
-// ── Evolve ──
-function renderEvolves() {
-    const el = document.getElementById('evolve-list');
-    if (!sessionData || !sessionData.evolves || sessionData.evolves.length === 0) {
-        el.innerHTML = '<div class="empty-state"><div class="title">No evolve runs</div><div>Use <code>!evolve N</code> in procy</div></div>';
-        return;
+    async function saveNewCorrection() {
+      const o=document.getElementById('new-original').value.trim();
+      const c=document.getElementById('new-corrected').value.trim();
+      const n=document.getElementById('new-note').value.trim();
+      if(!o||!c) return alert('Both fields required');
+      await fetch('/api/corrections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.selectedId||'manual',turn_num:0,original_prompt:o,corrected_prompt:c,note:n||null})});
+      renderCorrections();
     }
-    el.innerHTML = sessionData.evolves.map(e => {
-        const ts = new Date(e.timestamp * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-        return `
-            <div class="evolve-card">
-                <span class="iter-badge">Iteration ${e.iteration}</span>
-                <span style="font-size:11px;color:#8b949e;margin-left:8px">${ts}</span>
-                <span style="font-size:11px;color:#8b949e;margin-left:8px">source: ${e.source}</span>
-                <div class="prompt">${escHtml(e.prompt)}</div>
-                ${e.score !== null ? `<div class="score">Score: ${e.score}</div>` : ''}
-                ${e.response_summary ? `<div class="score">Response: ${escHtml(e.response_summary)}</div>` : ''}
-            </div>
-        `;
-    }).join('');
-}
 
-// ── Training ──
-function renderTraining() {
-    fetch('/api/training').then(r => r.json()).then(pairs => {
-        const el = document.getElementById('training-list');
-        const count = document.getElementById('training-count');
-        count.textContent = `${pairs.length} training pair${pairs.length !== 1 ? 's' : ''}`;
-        if (pairs.length === 0) {
-            el.innerHTML = '<div class="empty-state"><div class="title">No training data</div><div>Corrections become training pairs for SFT</div></div>';
-            return;
+    async function deleteCorrection(id) { if(!confirm('Delete?')) return; await fetch('/api/corrections/'+id,{method:'DELETE'}); renderCorrections(); }
+
+    // ── Training tab ──
+    function renderTraining() {
+      const el=document.getElementById('details');
+      fetch('/api/training').then(r=>r.json()).then(pairs => {
+        let html=`<div class="content"><div class="row"><b>Training Pairs (${pairs.length})</b><button onclick="exportTraining()">Export JSONL</button></div>`;
+        if(pairs.length===0) { html+='<div class="muted" style="margin-top:12px">No training data yet. Corrections become SFT pairs.</div>'; }
+        else {
+          html+='<table class="train-table" style="margin-top:10px"><thead><tr><th>Instruction (original)</th><th>Output (corrected)</th></tr></thead><tbody>';
+          pairs.forEach(p => {
+            html+=`<tr><td><div class="train-cell">${esc(p.original_prompt)}</div></td><td><div class="train-cell">${esc(p.corrected_prompt)}</div></td></tr>`;
+          });
+          html+='</tbody></table>';
         }
-        el.innerHTML = pairs.map(p => `
-            <div class="training-pair">
-                <div class="col">
-                    <div class="col-label instruction">Instruction (original)</div>
-                    <pre>${escHtml(p.original_prompt)}</pre>
-                </div>
-                <div class="col">
-                    <div class="col-label output">Output (corrected)</div>
-                    <pre>${escHtml(p.corrected_prompt)}</pre>
-                </div>
-            </div>
-        `).join('');
+        html+='</div>';
+        el.innerHTML=html;
+      });
+    }
+
+    async function exportTraining() {
+      const r=await fetch('/api/training/export'); const t=await r.text();
+      if(!t.trim()) return alert('No data');
+      const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'application/jsonl'})); a.download='procy_train.jsonl'; a.click();
+    }
+
+    // ── Slide-left: Edit/Correct ──
+    function openEdit(turnNum, currentText) {
+      state.editTarget={session_id:state.selectedId, turn_num:turnNum};
+      document.getElementById('edit-title').textContent='Edit Prompt (t'+turnNum+')';
+      document.getElementById('edit-meta').textContent='session='+((state.selectedId||'').slice(0,8))+' turn='+turnNum;
+      // Decode the escaped text
+      const ta=document.createElement('textarea'); ta.innerHTML=currentText; const decoded=ta.value;
+      document.getElementById('edge-current').textContent=decoded;
+      document.getElementById('edge-edited').value=decoded;
+      document.getElementById('edge-note').value='';
+      document.getElementById('edit-status').textContent='';
+      document.getElementById('edit-panel').classList.add('open');
+    }
+
+    function closeEdit() { document.getElementById('edit-panel').classList.remove('open'); state.editTarget=null; }
+
+    async function saveEdit() {
+      if(!state.editTarget) return;
+      const edited=document.getElementById('edge-edited').value.trim();
+      const note=document.getElementById('edge-note').value.trim();
+      if(!edited) return;
+      const original=document.getElementById('edge-current').textContent;
+      const st=document.getElementById('edit-status');
+      const btn=document.getElementById('btn-save-edit');
+      btn.disabled=true; st.textContent='Saving...';
+      try {
+        await fetch('/api/corrections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:state.editTarget.session_id,turn_num:state.editTarget.turn_num,original_prompt:original,corrected_prompt:edited,note:note||null})});
+        st.textContent='Saved!'; st.style.color='var(--ok)';
+        setTimeout(()=>{closeEdit();refresh();},800);
+      } catch(e) { st.textContent='Error: '+e; st.style.color='var(--bad)'; }
+      finally { btn.disabled=false; }
+    }
+
+    // ── Slide-right: Response detail ──
+    function openSlide(turnNum) {
+      const full=(window._responseCache&&window._responseCache[turnNum])||'';
+      document.getElementById('slide-title').textContent='Agent Response (t'+turnNum+')';
+      document.getElementById('slide-meta').textContent='turn='+turnNum;
+      let html='<h3 style="margin:0 0 6px">Full Response</h3>';
+      html+='<pre class="mono" style="background:#f6f8f6;border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto;white-space:pre-wrap;font-size:11px;max-height:70vh;overflow-y:auto">'+esc(full)+'</pre>';
+      document.getElementById('slide-content').innerHTML=html;
+      document.getElementById('slide-panel').classList.add('open');
+    }
+
+    function closeSlidePanel() { document.getElementById('slide-panel').classList.remove('open'); }
+
+    // Close panels on click outside
+    document.addEventListener('mousedown', e => {
+      const p=e.target.closest('.slide-left,.slide-panel,.edge,button');
+      if(p) return;
+      if(document.getElementById('edit-panel').classList.contains('open')) closeEdit();
+      if(document.getElementById('slide-panel').classList.contains('open')) closeSlidePanel();
     });
-}
-
-async function exportTraining() {
-    const resp = await fetch('/api/training/export');
-    const text = await resp.text();
-    if (!text.trim()) return alert('No training data to export');
-    const blob = new Blob([text], {type: 'application/jsonl'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'procy_train.jsonl'; a.click();
-    URL.revokeObjectURL(url);
-}
-
-// ── Helpers ──
-function escHtml(s) {
-    if (!s) return '';
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-</script>
+  </script>
 </body>
 </html>
 """
