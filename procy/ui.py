@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from flask import Flask, jsonify, request
-from trace import TraceStore
+from .store import TraceStore
 
 app = Flask(__name__)
 store: TraceStore = None  # type: ignore
@@ -686,7 +686,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="ProCy Monitor UI")
     parser.add_argument("--db", default="procy_traces.db", help="Trace database path")
-    parser.add_argument("--port", type=int, default=7861, help="Port (default: 7861)")
+    parser.add_argument("--port", type=int, default=7862, help="Port (default: 7862)")
     parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
     args = parser.parse_args()
 
@@ -696,7 +696,7 @@ def main():
     print(f"\033[1;35m  ProCy Monitor\033[0m")
     print(f"\033[2m  db: {args.db}\033[0m")
     print(f"\033[2m  http://{args.host}:{args.port}\033[0m")
-    app.run(host=args.host, port=args.port, debug=False)
+    app.run(host=args.host, port=args.port, debug=False, threaded=True)
 
 
 if __name__ == "__main__":

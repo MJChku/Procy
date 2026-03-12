@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "procy"
+version = "0.3.0"
+description = "Transparent prompt proxy between human and AI agents"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=2.0",
+]
+
+[project.scripts]
+procy = "procy.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["procy*"]
