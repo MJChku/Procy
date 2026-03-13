@@ -18,6 +18,7 @@ import time
 import tty
 from typing import Callable
 
+from .io import write_bytes
 
 class ProxySession:
     """Transparent PTY proxy between the user's terminal and a CLI process."""
@@ -29,6 +30,7 @@ class ProxySession:
         env: dict | None = None,
         on_output: Callable[[bytes], None] | None = None,
         on_input: Callable[[bytes], bytes | None] | None = None,
+        on_resize: Callable[[int, int], None] | None = None,
     ):
         """
         Args:
@@ -44,6 +46,7 @@ class ProxySession:
         self.cwd = cwd or os.getcwd()
         self.on_output = on_output
         self.on_input = on_input
+        self.on_resize = on_resize
         self._env = {**os.environ, **(env or {})}
         self._env.pop("CLAUDECODE", None)
         self.child_pid: int | None = None
@@ -58,6 +61,13 @@ class ProxySession:
         # Match the user's terminal size
         if sys.stdin.isatty():
             _copy_terminal_size(sys.stdin.fileno(), master_fd)
+            if self.on_resize:
+                size = _read_terminal_size(sys.stdin.fileno())
+                if size:
+                    try:
+                        self.on_resize(size[1], size[0])
+                    except Exception:
+                        pass
 
         # Fork
         pid = os.fork()
@@ -99,6 +109,13 @@ class ProxySession:
             def handle_sigwinch(signum, frame):
                 if sys.stdin.isatty():
                     _copy_terminal_size(sys.stdin.fileno(), master_fd)
+                    if self.on_resize:
+                        size = _read_terminal_size(sys.stdin.fileno())
+                        if size:
+                            try:
+                                self.on_resize(size[1], size[0])
+                            except Exception:
+                                pass
                     # Forward SIGWINCH to child
                     if self.child_pid:
                         os.kill(self.child_pid, signal.SIGWINCH)
@@ -143,18 +160,16 @@ class ProxySession:
                     if not data:
                         break
 
-                    # Let on_output observe
+                    # Forward to user's terminal
+                    write_bytes(data)
+
+                    # Let on_output observe after forwarding so observers can
+                    # redraw overlays/prompts on top of freshly printed output.
                     if self.on_output:
                         try:
                             self.on_output(data)
                         except Exception:
                             pass  # Don't let logging errors break the session
-
-                    # Forward to user's terminal
-                    try:
-                        os.write(sys.stdout.fileno(), data)
-                    except OSError:
-                        break
 
                 # Check if child is still alive
                 try:
@@ -189,6 +204,16 @@ def _copy_terminal_size(src_fd: int, dst_fd: int):
         pass
 
 
+def _read_terminal_size(fd: int) -> tuple[int, int] | None:
+    """Return terminal size as (rows, cols)."""
+    try:
+        size = fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\x00" * 8)
+        rows, cols, _, _ = struct.unpack("HHHH", size)
+        return rows, cols
+    except OSError:
+        return None
+
+
 # ── Convenience ──
 
 def run_proxy(
@@ -196,10 +221,17 @@ def run_proxy(
     cwd: str | None = None,
     on_output: Callable[[bytes], None] | None = None,
     on_input: Callable[[bytes], bytes | None] | None = None,
+    on_resize: Callable[[int, int], None] | None = None,
 ) -> int:
     """Run a transparent proxy session."""
     cmd = cmd or ["claude"]
-    proxy = ProxySession(cmd=cmd, cwd=cwd, on_output=on_output, on_input=on_input)
+    proxy = ProxySession(
+        cmd=cmd,
+        cwd=cwd,
+        on_output=on_output,
+        on_input=on_input,
+        on_resize=on_resize,
+    )
     return proxy.run()
 
 

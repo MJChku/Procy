@@ -91,7 +91,7 @@ class ClaudeCodeAgent:
         env = {**os.environ, "CLAUDECODE": ""}
 
         proc = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             cwd=self.cwd, env=env, text=True,
         )
 
@@ -162,6 +162,11 @@ class ClaudeCodeAgent:
 
         finally:
             proc.wait()
+            if proc.returncode not in (0, None):
+                yield StreamEvent(
+                    type="error",
+                    content=f"agent exited with code {proc.returncode}",
+                )
 
         return response
 
