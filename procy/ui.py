@@ -491,7 +491,7 @@ INDEX_HTML = r"""<!doctype html>
   </div>
 
   <script>
-    const state = { sessions:[], selectedId:null, sessionData:null, sessionFingerprint:'', activeTab:'interactions', editTarget:null, showAllCorrections:false, term:null, termFit:null, terminalSessionId:null, termAfterId:0, slideTerm:null, slideTermFit:null, refreshInFlight:false };
+    const state = { sessions:[], selectedId:null, sessionData:null, sessionFingerprint:'', activeTab:'interactions', editTarget:null, showAllCorrections:false, term:null, termFit:null, terminalSessionId:null, termAfterId:0, slideTerm:null, slideTermFit:null, refreshInFlight:false, evolveReq:0 };
     const _assetLoadPromises = {};
     const _loadedCssHrefs = new Set();
 
@@ -617,6 +617,7 @@ INDEX_HTML = r"""<!doctype html>
 
     function selectTab(tab) {
       state.activeTab = tab;
+      _evolveFingerprint = '';  // force re-render when switching tabs
       ['interactions','terminal','evolve','corrections','training'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t===tab));
       if(state.selectedId) renderWorkspace();
     }
@@ -692,8 +693,10 @@ INDEX_HTML = r"""<!doctype html>
               state.sessionFingerprint=newFp;
               if(state.activeTab==='terminal' && state.term && state.terminalSessionId===state.selectedId) {
                 // Keep existing terminal; incremental refresh already done above.
+              } else if(state.activeTab==='evolve') {
+                // Evolve tab handles its own fingerprint/scroll internally
+                renderEvolve();
               } else {
-                // Save scroll, re-render, restore in same animation frame
                 const savedY = window.scrollY;
                 const wasBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 24);
                 renderWorkspace();
@@ -702,6 +705,10 @@ INDEX_HTML = r"""<!doctype html>
                   else window.scrollTo(0, savedY);
                 });
               }
+            }
+            // Always poll evolve tab for new eval results (eval run doesn't change session data)
+            if(state.activeTab==='evolve' && !changed) {
+              renderEvolve();
             }
           } catch(e){}
         }
@@ -936,37 +943,37 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     // ── Evolve tab ──
+    let _evolveFingerprint = '';
     function renderEvolve() {
-      const savedScrollY = window.scrollY;
+      const reqId = ++state.evolveReq;
       const el=document.getElementById('details');
       if(!state.selectedId) { el.innerHTML='<div class="content muted">Select a session.</div>'; return; }
-      // scroll is saved inside renderEvolve itself
       Promise.all([
         apiGet('/api/evolves/'+state.selectedId).then(r=>r.json()),
         apiGet('/api/evaluator/'+state.selectedId).then(r=>r.json()),
         apiGet('/api/eval-results/'+state.selectedId).then(r=>r.json()),
       ]).then(([evolves, evaluator, evalResults]) => {
-        let html='<div class="content">';
+        if(reqId !== state.evolveReq || state.activeTab!=='evolve') return;
+        // Skip re-render if nothing changed
+        const lastEval = evalResults.length ? evalResults[evalResults.length-1] : null;
+        const fp = JSON.stringify([evolves.length, evalResults.length, lastEval?.id, evolves[evolves.length-1]?.score]);
+        if(fp === _evolveFingerprint) return;
+        _evolveFingerprint = fp;
 
-        // Evaluator info
-        if(evaluator) {
-          const schema = evaluator.metrics_schema || [];
-          const metricNames = schema.map(m => `${m.name} (${m.goal||'maximize'})`).join(', ');
-          html+=`<div style="margin-bottom:12px;padding:10px;border:1px solid #e0d4f0;border-radius:8px;background:#faf8ff">
-            <div class="row"><b>Evaluator: ${esc(evaluator.name)}</b><span class="small muted">${esc(evaluator.created_by||'')}</span></div>
-            <div class="small muted" style="margin-top:4px">Script: ${esc(evaluator.script_path||'inline')}</div>
-            ${metricNames ? `<div class="small" style="margin-top:2px">Metrics: ${esc(metricNames)}</div>` : ''}
-          </div>`;
-        } else {
-          html+='<div class="small muted" style="margin-bottom:12px">No evaluator set. Use <code>!eval set &lt;path&gt;</code> in procy.</div>';
-        }
+        if(!window._evolvePromptCache) window._evolvePromptCache={};
 
-        // Eval results chart (simple text grid)
+        // Match eval results to evolve iterations
+        const evalByIter = {};
+        evalResults.forEach(er => { if(er.iteration!==null) evalByIter[er.iteration]=er; });
+
+        let html='<div style="padding:6px 12px">';
+
+        // Results summary grid
         if(evalResults.length) {
           const metricKeys = new Set();
           evalResults.forEach(er => { if(er.metrics && typeof er.metrics==='object') Object.keys(er.metrics).forEach(k => metricKeys.add(k)); });
           const keys = [...metricKeys];
-          html+=`<div style="margin-bottom:12px"><b>Results Grid</b>
+          html+=`<div style="margin-bottom:12px"><b>Results (${evalResults.length} evals)</b>
             <table class="train-table" style="margin-top:6px"><thead><tr><th>#</th>${keys.map(k=>`<th>${esc(k)}</th>`).join('')}<th>Time</th></tr></thead><tbody>`;
           evalResults.forEach(er => {
             const tag = er.iteration!==null&&er.iteration!==undefined ? er.iteration : '-';
@@ -977,74 +984,46 @@ INDEX_HTML = r"""<!doctype html>
         }
 
         if(!evolves.length) {
-          html+='<div class="muted">No evolve runs yet. Use <code>!evolve N</code> in procy.</div>';
-          html+='</div>';
+          html+='<div class="muted">No evolve runs yet. Use <code>!evolve N</code> in procy.</div></div>';
           el.innerHTML=html;
-          requestAnimationFrame(() => window.scrollTo(0, savedScrollY));
           return;
         }
-        html+=`<div class="row" style="margin-bottom:8px"><b>Evolve Tries (${evolves.length})</b></div>`;
-        html+='<div id="evolve-list">';
 
-        // Match eval results to evolve iterations
-        const evalByIter = {};
-        evalResults.forEach(er => { if(er.iteration!==null) evalByIter[er.iteration]=er; });
-
+        // Chat history style: prompt left, response right
         evolves.forEach(ev => {
-          const tag='#'+ev.iteration;
-          const scoreHtml=ev.score!==null&&ev.score!==undefined
-            ? `<span class="pill ok">${Number(ev.score).toFixed(4)}</span>`
-            : '<span class="pill muted">no score</span>';
-          const resp=cleanTraceText(ev.response_summary||'');
-          const respExcerpt=resp.length>300?resp.slice(0,300)+'...':resp;
-          html+=`<div class="turn" id="evolve-${ev.iteration}" style="border-left:4px solid #7c3aed">
-            <div class="row" style="margin-bottom:6px">
-              <span style="font-size:15px;font-weight:700;color:#7c3aed">${tag}</span>
-              <div style="display:flex;gap:6px;align-items:center">
-                ${scoreHtml}
-                <span class="small muted">${esc(ev.source)}</span>
-                <span class="small muted">${fmtTs(ev.timestamp)}</span>
-              </div>
-            </div>
-            <div style="margin-bottom:8px">
-              <div class="small muted" style="margin-bottom:2px">Prompt</div>
-              <pre class="edge-text" style="max-height:100px;background:#f6edff;border:1px solid #e0d4f0;border-radius:6px;padding:6px">${esc(cleanTraceText(ev.prompt||''))}</pre>
-            </div>`;
-          if(resp) {
-            html+=`<div>
-              <div class="small muted" style="margin-bottom:2px">Response</div>
-              <pre class="edge-text" style="max-height:160px;background:#f8f4ee;border:1px solid #e8dfd0;border-radius:6px;padding:6px;cursor:pointer" onclick="toggleEvolveResponse(${ev.iteration})">${esc(respExcerpt)}</pre>
-              <pre class="edge-text" id="evolve-full-${ev.iteration}" style="display:none;max-height:400px;background:#f8f4ee;border:1px solid #e8dfd0;border-radius:6px;padding:6px">${esc(resp)}</pre>
-            </div>`;
-          } else {
-            html+='<div class="small muted">No response captured</div>';
-          }
-          // Show eval metrics inline
+          const ts = fmtTs(ev.timestamp);
+          const scoreHtml = ev.score!==null&&ev.score!==undefined
+            ? `<span class="pill ok">${Number(ev.score).toFixed(4)}</span>` : '';
           const er = evalByIter[ev.iteration];
-          if(er && er.metrics && typeof er.metrics==='object') {
-            const mStr = Object.entries(er.metrics).map(([k,v])=>`${k}=${typeof v==='number'?v.toFixed(4):v}`).join(', ');
-            html+=`<div style="margin-top:6px"><div class="small muted" style="margin-bottom:2px">Eval Metrics</div><pre class="edge-text" style="max-height:80px;background:#edf8f1;border:1px solid #c8e6d0;border-radius:6px;padding:6px">${esc(mStr)}</pre></div>`;
-            if(er.trace_metrics) {
-              const tStr = typeof er.trace_metrics==='object' ? JSON.stringify(er.trace_metrics) : String(er.trace_metrics);
-              html+=`<div style="margin-top:4px"><div class="small muted" style="margin-bottom:2px">Trace Metrics</div><pre class="edge-text" style="max-height:60px;background:#f0f4f8;border:1px solid #d0d8e0;border-radius:6px;padding:6px;font-size:10px">${esc(tStr)}</pre></div>`;
-            }
-          } else if(ev.eval_result) {
-            html+=`<div style="margin-top:6px"><div class="small muted" style="margin-bottom:2px">Eval Result</div><pre class="edge-text" style="max-height:80px;background:#edf8f1;border:1px solid #c8e6d0;border-radius:6px;padding:6px">${esc(typeof ev.eval_result==='string'?ev.eval_result:JSON.stringify(ev.eval_result,null,2))}</pre></div>`;
-          }
-          html+='</div>';
-        });
-        html+='</div></div>';
-        el.innerHTML=html;
-        requestAnimationFrame(() => window.scrollTo(0, savedScrollY));
-      });
-    }
+          const metricsStr = er && er.metrics && typeof er.metrics==='object'
+            ? Object.entries(er.metrics).map(([k,v])=>`${k}=${typeof v==='number'?v.toFixed(4):v}`).join(', ') : '';
 
-    function toggleEvolveResponse(iteration) {
-      const excerpt=event.target;
-      const full=document.getElementById('evolve-full-'+iteration);
-      if(!full) return;
-      if(full.style.display==='none') { full.style.display='block'; excerpt.style.display='none'; }
-      else { full.style.display='none'; excerpt.style.display='block'; }
+          // Prompt (left, violet — clickable to correct)
+          const promptText = cleanTraceText(ev.prompt||'');
+          const pKey = `evolve:${ev.iteration}:${ev.id}`;
+          window._evolvePromptCache[pKey] = promptText;
+          html+=`<button class="edge procy-prompt" onclick="openEditByKey(${ev.iteration}, '${pKey}')">
+            <div class="edge-head"><span>Evolve #${ev.iteration} prompt</span><span class="small muted">${scoreHtml} ${esc(ev.source)} ${ts}</span></div>
+            <pre class="edge-text">${esc(excerpt(ev.prompt, 300))}</pre>
+          </button>`;
+
+          // Response (right, gold)
+          const resp = cleanTraceText(ev.response_summary||'');
+          if(resp) {
+            html+=`<div class="edge agent-response">
+              <div class="edge-head"><span>Response</span><span class="small muted">${metricsStr ? esc(metricsStr) : ''}</span></div>
+              <pre class="edge-text">${esc(excerpt(resp, 400))}</pre>
+            </div>`;
+          }
+
+          // Eval metrics (compact, below response)
+          if(metricsStr) {
+            html+=`<div style="margin:2px 0 8px 72px;font-size:11px;color:var(--ok)">${esc(metricsStr)}${er.duration_s ? ' ('+Number(er.duration_s).toFixed(1)+'s)' : ''}</div>`;
+          }
+        });
+        html+='</div>';
+        el.innerHTML=html;
+      });
     }
 
     // ── Corrections tab ──
@@ -1206,7 +1185,9 @@ INDEX_HTML = r"""<!doctype html>
 
     // ── Slide-left: Edit/Correct ──
     function openEditByKey(turnNum, promptKey) {
-      const currentText = (window._promptCache && window._promptCache[promptKey]) || '';
+      const currentText = (window._promptCache && window._promptCache[promptKey])
+        || (window._evolvePromptCache && window._evolvePromptCache[promptKey])
+        || '';
       openEdit(turnNum, currentText);
     }
 
