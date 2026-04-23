@@ -1,4 +1,4 @@
-"""Thread-safe terminal writes shared across procy modules."""
+"""Thread-safe terminal writes shared across schism modules."""
 from __future__ import annotations
 
 import os

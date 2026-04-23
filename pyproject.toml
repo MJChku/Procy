@@ -3,16 +3,17 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "procy"
-version = "0.3.0"
-description = "Transparent prompt proxy between human and AI agents"
+name = "schism"
+version = "0.1.0"
+description = "Claude Code tool discovery, factory, and management framework"
 requires-python = ">=3.10"
 dependencies = [
     "flask>=2.0",
+    "mcp>=1.0",
 ]
 
 [project.scripts]
-procy = "procy.cli:main"
+schism = "schism.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["procy*"]
+include = ["schism*"]

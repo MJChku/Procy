@@ -6,3 +6,4 @@ __pycache__/
 procy_train.jsonl
 __pycache__/
 *.egg-info/
+.venv
